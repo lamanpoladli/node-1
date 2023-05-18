@@ -1,140 +1,169 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors')
-
 const app = express();
-app.use(cors());
+const crypto = require('crypto')
+const cors = require('cors')
+const bodyParser = require('body-parser');
+const mongoose = require('mongoose')
+const dotenv = require ('dotenv')
+dotenv.config();
+
+
+
+
 app.use(bodyParser.urlencoded({
-    extended: true
+    extended: false
 }));
 app.use(bodyParser.json())
+
 const PORT = 8080;
-let ID = undefined;
-const students =[
+app.use(cors());
+const StudentSchema = new mongoose.Schema({
+  name: String,
+  surname: String,
+  birhdate: Number,
+  faculty: String,
+  occupation: String,
+  isMarriend: String,
+  GPA: Number
+
+});
+
+//Artist Model
+const StudentModel = mongoose.model('Students', StudentSchema);
+
+//MONGO DATABASE CONNECTION
+DB_CONNECTION = process.env.DB_CONNECTION
+DB_PASSWORD = process.env.DB_PASSWORD
+mongoose.connect(DB_CONNECTION.replace("<password>", DB_PASSWORD))
+  .then(() => console.log("Mongo DB Connected!"))
+
+
+// const students =[
     
-        {
-            "id": 1,
-            "name": "Aysel",
-            "surname": "Amrahova",
-            "birthdate":"04.11.2002",
-            "faculty":"CS",
-            "Occupation":"Doktor",
-            "IsMarried":false,
-            "GPA":88
-        },
-        {
-            "id": 2,
-            "name": "Laman",
-            "surname": "Poladli",
-            "birthdate":"05.05.2002",
-            "faculty":"CS",
-            "Occupation":"Doktor",
-            "IsMarried":false,
-            "GPA":88
-        },
-        {
-            "id": 3,
-            "name": "Nurlana",
-            "surname": "Hasanzada",
-            "birthdate":"12.03.2002",
-            "faculty":"CS",
-            "Occupation":"Doktor",
-            "IsMarried":false,
-            "GPA":88
-        }
+//         {
+//             "id": 1,
+//             "name": "Aysel",
+//             "surname": "Amrahova",
+//             "birthdate":"04.11.2002",
+//             "faculty":"CS",
+//             "Occupation":"Doktor",
+//             "IsMarried":false,
+//             "GPA":88
+//         },
+//         {
+//             "id": 2,
+//             "name": "Laman",
+//             "surname": "Poladli",
+//             "birthdate":"05.05.2002",
+//             "faculty":"CS",
+//             "Occupation":"Doktor",
+//             "IsMarried":false,
+//             "GPA":88
+//         },
+//         {
+//             "id": 3,
+//             "name": "Nurlana",
+//             "surname": "Hasanzada",
+//             "birthdate":"12.03.2002",
+//             "faculty":"CS",
+//             "Occupation":"Doktor",
+//             "IsMarried":false,
+//             "GPA":88
+//         }
         
     
-]
+// ]
 
-if(students.length==0){
-    ID=1;
-}
-else{
-    let maxID = students.sort((a,b)=> b.id-a.id)[0].id
-    ID = ++maxID;
-}
 
-//Get students
 
-app.get('/students', (req, res) => {
+//Get all  students
 
-  const page = parseInt(req.query.page)
-  const limit = parseInt(req.query.limit)
-  const startIndex = (page-1)* limit
-  const endIndex = page * limit
-  const results ={}
-  if(endIndex < students.length){
-    results.next = {
-      page: page +1,
-      limit: limit
-    }
+app.get('/students', async (req, res) => {
+  // const page = parseInt(req.query.page)
+  // const limit = parseInt(req.query.limit)
+  // const startIndex = (page-1)* limit
+  // const endIndex = page * limit
+  // const results ={}
+  // if(endIndex < students.length){
+  //   results.next = {
+  //     page: page +1,
+  //     limit: limit
+  //   }
+  // }
+  // if(startIndex > 0){
+  //   results.previous = {
+  //     page: page -1,
+  //     limit: limit
+  //   }
+  // }
+  // results.results = students.slice(startIndex,endIndex)
+  // res.json(results)
+
+
+
+
+  const { name } = req.query;
+  const students = await StudentModel.find();
+  if (name === undefined) {
+    res.status(200).send({
+      data: students,
+      message: "data get success!",
+    });
+  } else {
+    res.status(200).send({
+      data: students.filter((x) => x.name.toLowerCase().trim().includes(name.toLowerCase().trim())),
+      message: "data get success!",
+    });
   }
-  if(startIndex > 0){
-    results.previous = {
-      page: page -1,
-      limit: limit
-    }
-  }
-  
-  results.results = students.slice(startIndex,endIndex)
-  res.json(results)
-    if(students.length===0){
-
-        res.status(204).send('no content')
-        return;
-    }else{
-        res.status(200).send(students)
-        return;
-    }
     
   })
 
   //Get student by Id
 
-  app.get('/students/:id', (req, res) => {
+  app.get('/students/:id', async (req, res) => {
     const id = req.params.id;
-    const singleData = students.find((data)=>data.id==id);
-    if(singleData===undefined){
-        res.status(404).send('data not found')
-        return;
-    }else{
-        res.status(200).send(singleData)
-        return;
-    }
+  const student = await StudentModel.findById(id);
+  console.log('student found: ', student);
+  if (!student) {
+    res.status(204).send("student not found!");
+  } else {
+    res.status(200).send({
+      data: student,
+      message: "data get success!",
+    });
+  }
   })
 
   //Delete student
 
-  app.delete('/students/:id', (req, res) => {
+  app.delete('/students/:id', async (req, res) => {
     const id = req.params.id;
-    const data = students.find((data)=>data.id==id);
-    if(data===undefined){
-        res.status(404).send('no such product found!')
-        return;
-    }
-    else{
-        const idx = students.indexOf(data);
-        students.splice(idx,1)
-        res.status(202).send('product deleted!')
-    }
+  const student = await StudentModel.findByIdAndDelete(id);
+  if (student === undefined) {
+    res.status(404).send("student not found");
+  } else {
+    res.status(203).send({
+      data: student,
+      message: "student deleted successfully",
+    });
+  }
   })
   
   //Create student
 
-  app.post('/students', (req, res) => {
-    const newStudent = {
-        id: ID,
-        name:req.body.name,
-        surname:req.body.surname,
-        birthdate:req.body.birthdate,
-        faculty:req.body.faculty,
-        Occupation:req.body.Occupation,
-        IsMarried:req.body.IsMarried,
-        GPA:req.body.GPA
-    }
-    students.push(newStudent);
-    ID++;
-    res.status(201).send("data posted!")
+  app.post('/students', async (req, res) => {
+    const { name, surname, birthdate, occupation, isMarriend, GPA } = req.body;
+  const newStudent = new StudentModel({ 
+    id: crypto.randomUUID(),
+    name: name,
+    surname: surname,
+    birthdate: birthdate,
+    occupation: occupation,
+    isMarriend: isMarriend,
+    GPA: GPA
+  });
+  await newStudent.save();
+  res.status(201).send("created");
     
     
   })
@@ -142,35 +171,33 @@ app.get('/students', (req, res) => {
   //Update student
 
 app.put("/students/:id", (req, res) => {
-    const id = req.params.id;
-    const { name, surname, birthdate,faculty, Occupation, IsMarried, GPA } = req.body;
-    const existedStudent = students.find((x) => x.id == id);
-    if (existedStudent == undefined) {
-      res.status(404).send("student not found!");
-    } else {
-      if (name) {
-        existedStudent.name = name;
-      }
-      if (surname) {
-        existedStudent.surname = surname;
-      }
-      if (birthdate) {
-        existedStudent.birthdate = birthdate;
-      }
-      if (faculty) {
-        existedStudent.faculty = faculty;
-      }
-      if (Occupation) {
-        existedStudent.Occupation = Occupation;
-      }
-      if (IsMarried) {
-        existedStudent.IsMarried = IsMarried;
-      }
-      if (GPA) {
-        existedStudent.GPA = GPA;
-      }
-      res.status(200).send(`student: ${existedStudent.name}`);
+  const id = req.params.id;
+  const { name, surname, birthdate, occupation, isMarriend, GPA } = req.body;
+  const existedStudent = STUDENTS.find((x) => x.id == id);
+  if (existedStudent == undefined) {
+    res.status(404).send("Student not found!");
+  } else {
+    if (name) {
+      existedStudent.name = name;
     }
+    if (surname) {
+      existedStudent.surname = surname;
+    }
+    if (birthdate) {
+      existedStudent.birthdate = birthdate;
+    }
+    if (occupation) {
+      existedStudent.occupation = occupation;
+    }
+    if (isMarriend) {
+      existedStudent.isMarriend = isMarriend;
+    }
+    if (GPA) {
+      existedStudent.GPA = GPA;
+    }
+
+    res.status(200).send(`student: ${existedStudent.name}`);
+  }
   });
   
 
